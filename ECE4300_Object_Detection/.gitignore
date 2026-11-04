@@ -1,0 +1,20 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Model weights (downloaded later, too large for git)
+models/*.pt
+*.pt
+
+# Datasets and generated output
+data/images/*
+!data/images/.gitkeep
+results/*
+!results/.gitkeep
+runs/
+
+# macOS / editor
+.DS_Store
