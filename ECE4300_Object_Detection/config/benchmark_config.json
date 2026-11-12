@@ -1,0 +1,34 @@
+{
+  "_comment": "ECE 4300 benchmark settings. Paths are relative to the project root. Only 'device' and 'image_size' differ between configurations; every other setting is shared so that all four configurations do identical work.",
+
+  "common": {
+    "model": "models/yolo11n.pt",
+    "manifest": "data/benchmark/image_manifest.csv",
+    "dataset_id": "COCO2017-val-first100-by-id",
+    "expected_images": 100,
+    "batch_size": 1,
+    "conf_threshold": 0.25,
+    "iou_threshold": 0.7,
+    "num_trials": 5,
+    "num_warmup": 100,
+    "cpu_threads": 4,
+    "raw_results_dir": "results/raw",
+    "summary_dir": "results/summary"
+  },
+
+  "baseline": "A",
+
+  "configurations": {
+    "A": {"name": "CPU-640", "device": "cpu", "image_size": 640},
+    "B": {"name": "CPU-320", "device": "cpu", "image_size": 320},
+    "C": {"name": "GPU-640", "device": "mps", "image_size": 640},
+    "D": {"name": "GPU-320", "device": "mps", "image_size": 320}
+  },
+
+  "comparisons": [
+    {"title": "Resolution effect on CPU",  "kind": "resolution", "baseline": "A", "comparison": "B"},
+    {"title": "Resolution effect on GPU",  "kind": "resolution", "baseline": "C", "comparison": "D"},
+    {"title": "CPU vs. GPU at 640x640",    "kind": "device",     "baseline": "A", "comparison": "C"},
+    {"title": "CPU vs. GPU at 320x320",    "kind": "device",     "baseline": "B", "comparison": "D"}
+  ]
+}

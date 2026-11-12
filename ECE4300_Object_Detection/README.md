@@ -47,13 +47,21 @@ Apple Silicon Mac, at two input resolutions.
 - 5 measured trials; execution time, latency, and throughput recorded
 - Raw per-trial data saved to `results/raw/`
 
-No MPS benchmarking, 320×320 runs, or speedup calculations have been added yet.
+**Stage 5 – CPU and GPU benchmark comparisons (implemented)**
+
+- Four selectable configurations (CPU/GPU × 640/320) defined in `config/benchmark_config.json`
+- Apple GPU execution through PyTorch MPS, with availability checks and `torch.mps.synchronize()`
+- Sequential runner for all four configurations, summary table, and speedup calculations
+- Measured results for all four configurations still need to be recorded on the Mac (see Step 5)
+
+No detection accuracy evaluation or performance graphs have been added yet.
 
 ## Project Structure
 
 ```text
 ECE4300_Object_Detection/
-├── config/        # Configuration files (future)
+├── config/
+│   └── benchmark_config.json    # Step 5: settings for configurations A–D
 ├── data/
 │   ├── images/                  # Custom test images (bus.jpg, your own)
 │   └── benchmark/               # Fixed COCO workload (Step 3)
@@ -65,9 +73,13 @@ ECE4300_Object_Detection/
 │   ├── detector.py  # Loads YOLO11n and runs inference
 │   ├── main.py      # Step 2 single-image detection test
 │   ├── prepare_benchmark_dataset.py  # Step 3 COCO subset download
-│   └── benchmark.py                  # Step 4 CPU baseline benchmark
+│   ├── benchmark.py                  # Steps 4–5: benchmark one configuration
+│   ├── benchmark_config.py           # Step 5: loads config/benchmark_config.json
+│   ├── run_all_benchmarks.py         # Step 5: runs A–D sequentially
+│   └── compare_results.py            # Step 5: summary table and speedups
 ├── results/       # Output images
-│   └── raw/       # Benchmark CSVs (one file per run)
+│   ├── raw/       # Benchmark CSVs (one file per run) + failed_runs.csv
+│   └── summary/   # Step 5 summary and speedup CSVs
 └── tests/         # Environment and unit checks
 ```
 
@@ -282,7 +294,7 @@ The metrics follow the performance concepts from **ECE 4300 Lecture 1**:
 | Batch size | 1 |
 | Confidence / NMS IoU threshold | 0.25 / 0.7 |
 | Dataset | 100 COCO 2017 val images, in `image_manifest.csv` order |
-| Warm-up | 3 untimed inferences |
+| Warm-up | 3 untimed inferences (Step 4 runs; changed to 100 in Step 5, see below) |
 | Measured trials | 5 (the model is loaded once and reused) |
 
 ### Run the benchmark
@@ -382,16 +394,208 @@ overwritten. Columns:
   postprocessing, so times are higher than the raw model forward pass.
 - **No accuracy check:** speed is measured without checking detection quality.
 
-### Next: Step 5
+## Step 5 – CPU and GPU Benchmark Comparisons
 
-- The same benchmark on the GPU (MPS), and at 320×320
-- Speedup calculations relative to this CPU baseline
+### The four configurations
 
-## Planned Benchmark Configurations
+| Config | Name | Device | Resolution | Role |
+|--------|------|--------|------------|------|
+| A | `CPU-640` | Apple M2 CPU | 640 × 640 | Baseline |
+| B | `CPU-320` | Apple M2 CPU | 320 × 320 | Resolution change on CPU |
+| C | `GPU-640` | Apple M2 GPU (MPS) | 640 × 640 | Same workload as A, on the GPU |
+| D | `GPU-320` | Apple M2 GPU (MPS) | 320 × 320 | Same workload as B, on the GPU |
 
-| # | Device      | Input Resolution |
-|---|-------------|------------------|
-| 1 | CPU         | 640 × 640        |
-| 2 | CPU         | 320 × 320        |
-| 3 | GPU (MPS)   | 640 × 640        |
-| 4 | GPU (MPS)   | 320 × 320        |
+Everything else is identical for all four: the same `models/yolo11n.pt`
+weights, the same 100 images in manifest order, batch size 1, confidence
+0.25, NMS IoU 0.7, 4 PyTorch CPU threads, 100 warm-up images, and 5 measured
+trials.
+
+### Configuration file
+
+All settings are in **`config/benchmark_config.json`** (not hardcoded in
+Python). The `common` block holds the shared settings (model file, dataset
+manifest, number of trials, warm-up, threads, thresholds, CSV output
+folders), and each configuration sets only `device` (`cpu` or `mps`) and
+`image_size` (`640` or `320`). `src/benchmark_config.py` loads and checks the
+file; it rejects unknown devices, resolutions other than 640/320, and batch
+sizes other than 1.
+
+### Commands
+
+From the `ECE4300_Object_Detection` folder, with `.venv` activated:
+
+```bash
+# One configuration at a time
+python -m src.benchmark                  # A: CPU 640x640 (baseline, same as Step 4)
+python -m src.benchmark --config B       # B: CPU 320x320   (or --config CPU-320)
+python -m src.benchmark --config C       # C: GPU 640x640   (or --config GPU-640)
+python -m src.benchmark --config D       # D: GPU 320x320   (or --config GPU-320)
+
+# All four, one after another, then the summary and speedup table
+python -m src.run_all_benchmarks
+python -m src.run_all_benchmarks --configs C D     # a subset
+
+# Rebuild the summary from CSVs already in results/raw/
+python -m src.compare_results                      # latest run of each configuration
+python -m src.compare_results --session <id>       # the runs from one run_all session
+
+# Unit tests (no real inference, no GPU needed, about 1 second)
+python -m unittest tests.test_benchmark tests.test_configurations -v
+```
+
+`run_all_benchmarks` starts each configuration in its own Python process,
+**strictly one at a time** (never in parallel), so memory is fully released
+between runs on the 8 GB Mac. If one configuration fails, the error is
+recorded and the others still run. Each configuration processes the
+100 images 6 times (1 warm-up pass + 5 trials), so expect a few minutes in total.
+
+### GPU (MPS) execution
+
+Before any GPU work, `src/benchmark.py`:
+
+1. Checks `torch.backends.mps.is_built()` and `torch.backends.mps.is_available()`.
+   If either is false, it prints an explanation and exits with code 2.
+   **It never falls back to the CPU.** This check matters because Ultralytics
+   itself silently switches to the CPU when MPS is requested but unavailable.
+2. Refuses to run if `PYTORCH_ENABLE_MPS_FALLBACK=1` is set, because that
+   setting lets PyTorch run unsupported operations on the CPU without warning.
+3. Runs one untimed inference and confirms that the predictor, the model
+   weights, and the output boxes are all on `mps`. It checks this again after
+   the trials. The same check is applied to the CPU configurations.
+
+**Synchronization:** MPS runs GPU kernels asynchronously, so `predict()` can
+return before the GPU is finished. Inside the timed loop,
+`torch.mps.synchronize()` is called after **every** image, so each image is
+completely processed before the next one starts (exactly as on the CPU) and
+the timer never stops while GPU work is still queued. On the CPU the call is
+skipped because CPU work is already finished when `predict()` returns.
+
+### What is timed (the same for all four configurations)
+
+The timer measures **elapsed workload processing time**: the complete
+sequential loop of 100 `model.predict()` calls on images that are already
+in memory.
+
+- **Included:** YOLO preprocessing (letterbox resize, normalization, copy
+  to the device), the neural-network forward pass, postprocessing (NMS,
+  Results objects), and on the GPU, the wait for queued GPU work to finish.
+- **Excluded:** model loading, dataset download, manifest reading, JPEG
+  decoding, the device check, warm-up, console output, CSV writing, and
+  saving images.
+
+This is not neural-network-only time, and no configuration is timed
+differently from another. The CSV `measurement` column is
+`elapsed_workload_time` for every run.
+
+### Changes to the Step 4 baseline methodology
+
+The timing boundary for CPU-640 is **unchanged**: the same loop, the same
+`perf_counter()` positions, and the same `predict()` settings. The added
+synchronize call does nothing on the CPU. Two things changed, for all four
+configurations equally:
+
+1. **Warm-up: 3 → 100 images (one full untimed pass).** With
+   `predict()`, Ultralytics letterboxes each image to the smallest
+   stride-32 rectangle (`rect=True`), so the model input shape depends on
+   the image's aspect ratio. The 100 images produce **14 different input
+   shapes at 640 and 9 at 320**. On MPS each new shape triggers one-time GPU
+   kernel/graph setup. With only 3 warm-up images, most of that one-time
+   setup would fall inside measured trial 1. A full pass covers every shape
+   before timing starts, and it is applied to the CPU too so all four
+   configurations are prepared the same way. Warm-up is outside the timer, so
+   the measured region is unchanged. To return to the Step 4 setting, set
+   `"num_warmup": 3` in the config file.
+2. **More CSV columns** (listed below). The Step 4 columns are all still present.
+
+Because of change 1, compare the four configurations from the **same Step 5
+session**, not against the Step 4 CPU-640 run (3.186 s).
+`compare_results` warns when the selected runs used different warm-up
+settings, model weights, or image lists.
+
+### Formulas
+
+```text
+Total execution time (s)       = perf_counter() at end − perf_counter() at start   (one trial)
+Average time per image (ms)    = Total execution time / 100 images × 1000
+Throughput (images/s)          = 100 images / Total execution time
+Mean execution time (s)        = average of the 5 trial execution times
+
+Speedup = Baseline execution time / Comparison execution time   (using the mean times)
+```
+
+The summary reports the mean per-image time and mean throughput as the
+average of the five per-trial values, the same as Step 4.
+
+### Speedup comparisons
+
+| Comparison | Formula | What it shows |
+|------------|---------|---------------|
+| Resolution effect on CPU | CPU-640 time / CPU-320 time | Effect of a smaller input on the same hardware |
+| Resolution effect on GPU | GPU-640 time / GPU-320 time | Effect of a smaller input on the same hardware |
+| CPU vs. GPU at 640×640 | CPU-640 time / GPU-640 time | Same workload, different processor |
+| CPU vs. GPU at 320×320 | CPU-320 time / GPU-320 time | Same workload, different processor |
+
+- **Speedup > 1:** the comparison configuration was faster.
+- **Speedup < 1:** the comparison configuration was **slower** (for example,
+  0.80 means it took 1/0.80 = 1.25× as long). The GPU is not assumed to be
+  faster: with batch size 1 and a small model, GPU launch and
+  synchronization overhead, and CPU-side pre/postprocessing, can cancel
+  out the GPU's advantage.
+- Only the **CPU vs. GPU** rows are same-workload hardware speedups. The
+  **resolution** rows compare different workloads (320×320 has about 4× fewer
+  input pixels), so they show the effect of reducing resolution, not
+  faster hardware.
+
+### Where results are stored
+
+| File | Contents |
+|------|----------|
+| `results/raw/<config>_<run_id>.csv` | One row per measured trial (e.g. `gpu-320_20261112-101500-a1b2c3.csv`) |
+| `results/raw/failed_runs.csv` | One row per failed run: configuration, device, and the error message (no timing data) |
+| `results/summary/summary_<time>_<session>.csv` | One row per configuration: status, mean/std/min/max time, ms/image, images/s |
+| `results/summary/speedup_<time>_<session>.csv` | The four speedups, the times used, and a plain-language interpretation |
+
+Raw CSV columns: `run_id`, `session_id`, `timestamp`, `configuration`,
+`config_id`, `device`, `processor`, `resolution`, `model`, `model_sha256`,
+`dataset`, `image_list_sha256`, `num_images`, `cpu_threads`,
+`warmup_images`, `measurement`, `trial`, `total_time_s`,
+`avg_time_ms_per_image`, `throughput_img_per_s`.
+
+`model_sha256` and `image_list_sha256` (a hash of the ordered image names
+and checksums) show that every configuration used the same weights and the same
+100 images in the same order. All result files are created in
+exclusive-create mode, so earlier sessions are never overwritten. Step 4
+CSVs (without the new columns) are still read correctly.
+
+### Results
+
+**Not measured yet.** Step 5 was implemented and tested on a different
+computer that has no Apple GPU. The unit tests pass, and CPU-640 and CPU-320
+were run end to end there, but those numbers come from a different processor
+and are not project results. Run `python -m src.run_all_benchmarks` on the
+Mac and record the summary and speedup tables here.
+
+### Known limitations
+
+- **macOS background activity:** Spotlight indexing, iCloud/OneDrive sync,
+  Time Machine, browser tabs, and other apps compete for the CPU, the GPU,
+  and memory bandwidth. Close other apps, plug in power, and run all four
+  configurations in one session so they share the same conditions.
+- **Unified memory:** the M2 CPU and GPU share the same 8 GB of memory and
+  its bandwidth. There is no separate GPU memory and no PCIe copy, so
+  "moving data to the GPU" is cheap. However, memory pressure from other
+  apps (swapping) slows both devices.
+- **CPU work inside GPU runs:** in the GPU configurations, Ultralytics
+  preprocessing and parts of postprocessing still run on the CPU (4
+  threads), so GPU times are not pure GPU compute time.
+- **Per-image synchronization:** calling `torch.mps.synchronize()` after
+  every image (batch size 1) adds a small fixed cost per image on the GPU.
+  This is intentional: each image is fully finished, as on the CPU.
+- **Thermal throttling:** a fanless MacBook Air can slow down during
+  long runs. Later configurations in a session may run slightly hotter.
+- **Variable input shapes:** with `rect=True`, the actual model input
+  is at most 640×640 (or 320×320), not always exactly that size. The workload is still
+  identical across devices because the images and their order are fixed.
+- **Wall-clock timing and trial-to-trial variation:** as in Step 4.
+- **No accuracy check:** 320×320 is faster but may detect fewer objects.
+  Detection accuracy is not evaluated in this step.
