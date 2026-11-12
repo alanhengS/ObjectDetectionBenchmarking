@@ -4,3 +4,4 @@ torch==2.15.0
 torchvision==0.29.2
 ultralytics==8.4.202
 opencv-python==5.0.0.93
+matplotlib>=3.3.0  # Step 6 graphs; already installed as an Ultralytics dependency

@@ -54,7 +54,13 @@ Apple Silicon Mac, at two input resolutions.
 - Sequential runner for all four configurations, summary table, and speedup calculations
 - Measured results for all four configurations still need to be recorded on the Mac (see Step 5)
 
-No detection accuracy evaluation or performance graphs have been added yet.
+**Stage 6 – Performance analysis and graphs (implemented)**
+
+- `src/analyze_results.py` checks the Step 5 measurements and calculates mean time, ms/image, throughput, range, and speedups
+- Summary CSV, speedup CSV, written report, and three graphs
+- Run on the Mac after Step 5 has been measured (see Step 6)
+
+No detection accuracy evaluation has been added yet.
 
 ## Project Structure
 
@@ -76,10 +82,13 @@ ECE4300_Object_Detection/
 │   ├── benchmark.py                  # Steps 4–5: benchmark one configuration
 │   ├── benchmark_config.py           # Step 5: loads config/benchmark_config.json
 │   ├── run_all_benchmarks.py         # Step 5: runs A–D sequentially
-│   └── compare_results.py            # Step 5: summary table and speedups
+│   ├── compare_results.py            # Step 5: summary table and speedups
+│   └── analyze_results.py            # Step 6: analysis, report, and graphs
 ├── results/       # Output images
 │   ├── raw/       # Benchmark CSVs (one file per run) + failed_runs.csv
-│   └── summary/   # Step 5 summary and speedup CSVs
+│   ├── summary/   # Step 5 summary and speedup CSVs
+│   ├── summaries/ # Step 6 summary CSV, speedup CSV, and analysis report
+│   └── graphs/    # Step 6 PNG graphs
 └── tests/         # Environment and unit checks
 ```
 
@@ -599,3 +608,129 @@ Mac and record the summary and speedup tables here.
 - **Wall-clock timing and trial-to-trial variation:** as in Step 4.
 - **No accuracy check:** 320×320 is faster but may detect fewer objects.
   Detection accuracy is not evaluated in this step.
+
+## Step 6 – Performance Analysis and Graphs
+
+### Purpose
+
+`src/analyze_results.py` turns the Step 5 measurements into a summary table,
+speedups, a short written interpretation, and three graphs. It only reads
+measured data. It does not run YOLO, and it never changes the raw CSVs.
+
+### Run the analysis
+
+On the Mac, after Step 5 has been measured:
+
+```bash
+source .venv/bin/activate
+python -m src.run_all_benchmarks      # Step 5: collect A–D in one session (if not done yet)
+python -m src.analyze_results         # Step 6: analyze the latest complete session
+python -m src.analyze_results --session <session id>   # or a specific session
+
+# Calculation tests (known math examples, no real data, a few seconds)
+python -m unittest tests.test_analysis -v
+```
+
+### Which data is used
+
+The analysis uses **one complete benchmark session**: the most recent
+`run_all_benchmarks` session that has all four configurations (or the one
+given with `--session`). Runs from different sessions are never combined,
+because they may have been measured under different conditions.
+
+Before calculating anything, the script checks that:
+
+- all four configurations are present, each with at least 5 trials
+- every trial time is a positive number and every trial processed 100 images
+- the stored ms/image value of each trial matches its measured time
+- every run used the same model weights, image list and order, dataset,
+  warm-up, and CPU thread count (from the hashes and settings in the CSVs)
+- every trial was measured with the same timing boundary (`measurement` =
+  `elapsed_workload_time`) and the expected device and resolution
+- batch size is 1 (enforced by the configuration file)
+
+If any check fails, the **whole run is rejected**: no trial is silently
+skipped, and nothing is written. The script then prints what is missing and
+the command to collect it (`python -m src.run_all_benchmarks`).
+
+### Formulas
+
+```text
+Mean execution time (s)          = sum of trial execution times / number of trials
+Average processing time (ms/img) = mean execution time / number of images × 1000
+Trial throughput (images/s)      = number of images / trial execution time
+Mean throughput (images/s)       = average of the trial throughputs
+Minimum / maximum time (s)       = shortest / longest trial
+Range (s)                        = maximum time − minimum time
+Speedup                          = reference execution time / comparison execution time
+```
+
+Speedups use the mean execution times. Mean throughput is the average of
+the five trial throughputs, so it can differ slightly from
+100 / mean time.
+
+| Comparison | Reference → Comparison |
+|------------|------------------------|
+| Resolution effect on CPU | CPU 640×640 → CPU 320×320 |
+| Resolution effect on GPU | GPU 640×640 → GPU 320×320 |
+| CPU vs. GPU at 640×640 | CPU 640×640 → GPU 640×640 |
+| CPU vs. GPU at 320×320 | CPU 320×320 → GPU 320×320 |
+
+A speedup **above 1** means the comparison configuration was faster. A
+speedup **below 1** means it was **slower**, and it is reported that way,
+not as an improvement.
+
+### Output files
+
+Files are named after the session ID, so analyses of different sessions
+never overwrite each other. Re-running the analysis on the same session
+recreates identical files from the same data.
+
+| File | Contents |
+|------|----------|
+| `results/summaries/performance_summary_<session>.csv` | Per configuration: name, processor, resolution, trials, images per trial, mean time, ms/image, mean throughput, min, max, range |
+| `results/summaries/speedup_<session>.csv` | The four speedups, the two mean times used for each, which configuration was faster, and an interpretation |
+| `results/summaries/analysis_report_<session>.md` | Short written interpretation (see below) |
+| `results/graphs/execution_time_<session>.png` | Graph 1 |
+| `results/graphs/throughput_<session>.png` | Graph 2 |
+| `results/graphs/cpu_gpu_speedup_<session>.png` | Graph 3 |
+
+Graphs are 300 dpi PNGs on a white background, suitable for the report.
+CPU bars are blue and GPU bars are orange in both bar charts.
+
+### How to read the graphs
+
+- **Graph 1 – Average Object Detection Execution Time:** mean time (seconds)
+  to process the 100-image workload. **Lower is faster.** The shortest bar is
+  the configuration that finishes the workload first. Whiskers show the
+  fastest and slowest of the 5 trials; short whiskers mean consistent trials.
+- **Graph 2 – Object Detection Throughput Comparison:** images processed per
+  second (mean of the trial throughputs). **Higher is better.** Throughput is
+  the reciprocal view of Graph 1: the shortest bar there should be the
+  tallest bar here.
+- **Graph 3 – CPU-to-GPU Speedup by Resolution:** CPU mean time / GPU mean
+  time at each resolution. The dashed line is 1.0× (equal performance).
+  **Above the line, the GPU was faster; below it, the CPU was faster.** It
+  compares the same workload on two processors, so it shows only the
+  hardware difference, not the resolution effect.
+
+### Written report
+
+`analysis_report_<session>.md` states, from the measured data, which
+configuration had the shortest mean time and the highest throughput, how
+reducing resolution changed the time on each processor, how CPU and GPU
+compared, and whether trials were consistent. A configuration counts as
+consistent when its range is at most 10% of its mean (set by
+`consistency_threshold_pct` in the config file). Unexpected results, such as
+the GPU being slower or trial 1 being much slower than the others, are
+listed separately. Possible reasons are in their own section, clearly
+labelled **hypotheses (not measured)**, because this project measures only
+total elapsed time.
+
+### Results depend on the conditions
+
+All numbers apply only to this Mac, these software versions, and the
+conditions during the session (power source, temperature, background apps,
+memory pressure). Another run can give slightly different values, and
+other hardware, model sizes, or batch sizes may give different conclusions.
+Report the session ID together with the results.

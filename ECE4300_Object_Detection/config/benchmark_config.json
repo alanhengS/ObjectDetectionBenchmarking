@@ -25,6 +25,13 @@
     "D": {"name": "GPU-320", "device": "mps", "image_size": 320}
   },
 
+  "analysis": {
+    "summaries_dir": "results/summaries",
+    "graphs_dir": "results/graphs",
+    "graph_dpi": 300,
+    "consistency_threshold_pct": 10
+  },
+
   "comparisons": [
     {"title": "Resolution effect on CPU",  "kind": "resolution", "baseline": "A", "comparison": "B"},
     {"title": "Resolution effect on GPU",  "kind": "resolution", "baseline": "C", "comparison": "D"},
