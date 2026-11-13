@@ -47,18 +47,18 @@ Apple Silicon Mac, at two input resolutions.
 - 5 measured trials; execution time, latency, and throughput recorded
 - Raw per-trial data saved to `results/raw/`
 
-**Stage 5 – CPU and GPU benchmark comparisons (implemented)**
+**Stage 5 – CPU and GPU benchmark comparisons (complete)**
 
 - Four selectable configurations (CPU/GPU × 640/320) defined in `config/benchmark_config.json`
 - Apple GPU execution through PyTorch MPS, with availability checks and `torch.mps.synchronize()`
 - Sequential runner for all four configurations, summary table, and speedup calculations
-- Measured results for all four configurations still need to be recorded on the Mac (see Step 5)
+- All four configurations measured on the Mac (session `S20261112-121717-4092`, see Step 5)
 
-**Stage 6 – Performance analysis and graphs (implemented)**
+**Stage 6 – Performance analysis and graphs (complete)**
 
 - `src/analyze_results.py` checks the Step 5 measurements and calculates mean time, ms/image, throughput, range, and speedups
 - Summary CSV, speedup CSV, written report, and three graphs
-- Run on the Mac after Step 5 has been measured (see Step 6)
+- Run on the Mac for session `S20261112-121717-4092`; outputs in `results/summaries/` and `results/graphs/`
 
 No detection accuracy evaluation has been added yet.
 
@@ -576,13 +576,27 @@ and checksums) show that every configuration used the same weights and the same
 exclusive-create mode, so earlier sessions are never overwritten. Step 4
 CSVs (without the new columns) are still read correctly.
 
-### Results
+### Results (12 Nov 2026, session `S20261112-121717-4092`)
 
-**Not measured yet.** Step 5 was implemented and tested on a different
-computer that has no Apple GPU. The unit tests pass, and CPU-640 and CPU-320
-were run end to end there, but those numbers come from a different processor
-and are not project results. Run `python -m src.run_all_benchmarks` on the
-Mac and record the summary and speedup tables here.
+Measured on the Apple M2 Mac with `python -m src.run_all_benchmarks`
+(5 trials each, 100 images per trial, 100 warm-up images).
+
+| Cfg | Name | Mean time (s) | Std (s) | ms/image | images/s |
+|-----|------|---------------|---------|----------|----------|
+| A | CPU-640 | 2.991 | 0.028 | 29.91 | 33.44 |
+| B | CPU-320 | 0.968 | 0.011 | 9.68 | 103.29 |
+| C | GPU-640 | 1.747 | 0.037 | 17.47 | 57.25 |
+| D | GPU-320 | 1.140 | 0.021 | 11.40 | 87.77 |
+
+| Comparison | Calculation | Speedup |
+|------------|-------------|---------|
+| Resolution effect on CPU (A / B) | 2.991 / 0.968 | 3.09× |
+| Resolution effect on GPU (C / D) | 1.747 / 1.140 | 1.53× |
+| CPU vs. GPU at 640×640 (A / C) | 2.991 / 1.747 | 1.71× (GPU faster) |
+| CPU vs. GPU at 320×320 (B / D) | 0.968 / 1.140 | 0.85× (GPU **slower**, 1.18× as long) |
+
+All four runs used the same model weights, image list, image count, and
+warm-up (verified by `compare_results` and `analyze_results`).
 
 ### Known limitations
 

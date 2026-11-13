@@ -1,4 +1,4 @@
-# Core dependencies for ECE 4300 Object Detection Benchmarking
+    # Core dependencies for ECE 4300 Object Detection Benchmarking
 # Installed and verified on Apple M2 (macOS, arm64) with Python 3.13.7
 torch==2.15.0
 torchvision==0.29.2
