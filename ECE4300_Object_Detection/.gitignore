@@ -14,6 +14,11 @@ data/images/*
 !data/images/.gitkeep
 results/*
 !results/.gitkeep
+!results/validation_report.md
+
+# Step 7 accuracy check: YOLO labels derived from the COCO annotations (regenerated each run)
+data/benchmark/labels/
+data/benchmark/labels.cache
 runs/
 
 # macOS / editor

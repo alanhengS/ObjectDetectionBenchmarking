@@ -140,6 +140,13 @@ def validate_run(trials, cfg):
     numbers = [r.get("trial", "") for r in trials]
     if len(set(numbers)) != len(numbers):
         problems.append("duplicate trial numbers")
+    else:
+        try:
+            ordered = sorted(int(n) for n in numbers)
+        except ValueError:
+            ordered = None
+        if ordered != list(range(1, len(numbers) + 1)):
+            problems.append(f"trial numbers are not 1..{len(numbers)}: {numbers}")
 
     for r in trials:
         label = f"trial {r.get('trial', '?')}"

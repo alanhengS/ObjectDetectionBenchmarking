@@ -174,6 +174,11 @@ def interpret(s, base_name, comp_name, kind):
 def check_consistency(summaries):
     """Return warnings if selected runs did not do identical work."""
     warnings = []
+    sessions = {k: s["session_id"] for k, s in summaries.items()}
+    if len(set(sessions.values())) > 1:
+        detail = ", ".join(f"{k}={v}" for k, v in sorted(sessions.items()))
+        warnings.append(f"Runs come from different benchmark sessions ({detail}); conditions "
+                        "may differ. Use --session <id> to compare runs from one session.")
     for field, label in (("num_images", "number of images"), ("dataset", "dataset"),
                          ("model", "model file"), ("model_sha256", "model weights"),
                          ("image_list_sha256", "image list/order"),

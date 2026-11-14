@@ -60,7 +60,11 @@ Apple Silicon Mac, at two input resolutions.
 - Summary CSV, speedup CSV, written report, and three graphs
 - Run on the Mac for session `S20261112-121717-4092`; outputs in `results/summaries/` and `results/graphs/`
 
-No detection accuracy evaluation has been added yet.
+**Stage 7 – Experimental validation (tools complete; Mac run pending)**
+
+- `src/validate_experiment.py` recalculates every metric from the raw CSVs and checks the Step 5/6 outputs and graphs against it
+- `src/evaluate_accuracy.py` measures detection quality (mAP50) at 640 and 320 with Ultralytics' built-in validation
+- `results/validation_report.md` records which checks have passed and which are still pending (see Step 7)
 
 ## Project Structure
 
@@ -83,12 +87,17 @@ ECE4300_Object_Detection/
 │   ├── benchmark_config.py           # Step 5: loads config/benchmark_config.json
 │   ├── run_all_benchmarks.py         # Step 5: runs A–D sequentially
 │   ├── compare_results.py            # Step 5: summary table and speedups
-│   └── analyze_results.py            # Step 6: analysis, report, and graphs
+│   ├── analyze_results.py            # Step 6: analysis, report, and graphs
+│   ├── validate_experiment.py        # Step 7: checks measurements, summaries, graphs
+│   └── evaluate_accuracy.py          # Step 7: mAP50 at 640 and 320 (accuracy only)
 ├── results/       # Output images
 │   ├── raw/       # Benchmark CSVs (one file per run) + failed_runs.csv
 │   ├── summary/   # Step 5 summary and speedup CSVs
 │   ├── summaries/ # Step 6 summary CSV, speedup CSV, and analysis report
-│   └── graphs/    # Step 6 PNG graphs
+│   ├── graphs/    # Step 6 PNG graphs
+│   ├── validation/          # Step 7 data-validation output (one file per run)
+│   ├── accuracy/            # Step 7 accuracy CSVs (one file per run)
+│   └── validation_report.md # Step 7 validation report (tracked in git)
 └── tests/         # Environment and unit checks
 ```
 
@@ -748,3 +757,120 @@ conditions during the session (power source, temperature, background apps,
 memory pressure). Another run can give slightly different values, and
 other hardware, model sizes, or batch sizes may give different conclusions.
 Report the session ID together with the results.
+
+## Step 7 – Experimental Validation
+
+### Purpose
+
+Step 7 checks that the measurements are complete, comparable, and correctly
+calculated, and that the graphs show the measured data. It also checks
+whether the lower resolution changes detection quality. **No new
+benchmark is run, and no existing result file is changed.** The findings are
+in `results/validation_report.md`.
+
+### Commands (on the Mac, from the project folder, `.venv` active)
+
+```bash
+# 1. All unit tests (no real inference)
+python -m unittest discover -s tests -p "test_*.py" -v
+
+# 2. Dataset integrity
+python tests/validate_benchmark_dataset.py
+
+# 3. Custom-image detection still works (needs data/images/bus.jpg, see Step 2)
+python src/main.py
+
+# 4. Validate the Step 5 measurements and the Step 6 outputs and graphs
+python -m src.validate_experiment --session S20261112-121717-4092
+
+# 5. Detection quality at 640 and 320 (accuracy only, no timing)
+python -m src.evaluate_accuracy
+```
+
+`tests/test_validation.py` uses only the Python standard library, so it
+also runs on a computer without PyTorch.
+
+### What `validate_experiment` checks
+
+It reads `results/raw/*.csv` directly and **recalculates every metric
+independently** (it does not reuse the Step 6 formulas), then checks:
+
+| Area | Checks |
+|------|--------|
+| Configuration file | exactly CPU/GPU × 640/320; only device and resolution differ; batch size 1; ≥ 5 trials; speedup pairs have the right numerator and denominator |
+| Raw trials (each configuration) | ≥ 5 trials numbered 1..N (no duplicates or gaps); every time positive; 100 images per trial; stored ms/image and images/s match the time; device, resolution, timing boundary, warm-up, threads, dataset, and model as configured |
+| Same workload | identical model-weights hash, image-list hash, image count, warm-up, threads, and timing boundary in all four runs; hashes match the current manifest and `models/yolo11n.pt` |
+| Session | one complete session only; other sessions are listed and never combined |
+| Input resolution | the letterbox input shapes for all 100 images (longest side = 640 or 320, padded to a multiple of 32), compared with Ultralytics' own `LetterBox` |
+| Step 5 / Step 6 outputs | summary CSVs, speedup CSVs, and the report's "fastest" and "highest throughput" claims equal the recalculation |
+| Graphs | files exist, PNG at ≥ 300 dpi, plotted values equal the recalculation, labels correct, and each PNG is byte-identical to a fresh render of the measured data |
+
+Each check prints `PASS`, `FAIL`, `SKIP` (could not be checked on this
+computer, with the reason), or `INFO`. The output is also saved to a new file,
+`results/validation/data_validation_<session>_<time>.md`. The exit code is 0
+only if nothing failed. If a graph differs from a fresh render, regenerate
+it with `python -m src.analyze_results --session <id>` (this reads the same
+raw data and does not change it).
+
+### Detection quality (accuracy, not performance)
+
+`src/evaluate_accuracy.py` uses **Ultralytics' built-in validation**
+(`model.val()`) on the same 100 images:
+
+1. It converts the existing COCO ground truth
+   (`data/benchmark/annotations/instances_val2017_subset.json`, 714 objects)
+   into YOLO label files in `data/benchmark/labels/`. These are derived files,
+   rewritten on every run and not committed. The 5 crowd boxes are skipped, as
+   Ultralytics' own COCO converter does, which leaves 709 boxes.
+2. It runs validation at 640 and at 320 with the same weights and settings:
+   batch 1, NMS IoU 0.7, and **conf 0.001**. Ultralytics uses this
+   confidence by default for validation because mAP needs the full
+   precision-recall curve. The benchmark's conf 0.25 is a detection cut-off,
+   not an evaluation setting.
+3. It saves precision, recall, mAP50, and mAP50-95 to a new file,
+   `results/accuracy/accuracy_<time>.csv`.
+
+The model is not trained or changed, and nothing is downloaded. These numbers
+are reported **separately** from the timing results: they show whether the
+faster 320×320 input costs detection quality, not anything about the
+hardware. 100 images is a small sample. The mAP is Ultralytics'
+implementation and can differ slightly from the official COCO
+(pycocotools) evaluator.
+
+### Reproducing the experiment (checklist for a team member)
+
+| Requirement | Where / how |
+|-------------|-------------|
+| Hardware | Apple Silicon Mac (results here: M2, 8 GB). GPU configurations need MPS |
+| Software | Python 3.13, packages pinned in `requirements.txt` (`pip install -r requirements.txt`) |
+| Model weights | `models/yolo11n.pt`, downloaded automatically by Ultralytics on first run (not in git). `model_sha256` in the CSVs identifies the exact file |
+| Benchmark dataset | `data/benchmark/` (in git): 100 images, manifest, and annotations. Recreate with `python src/prepare_benchmark_dataset.py`, then check it with `python tests/validate_benchmark_dataset.py` |
+| Custom test image | `data/images/bus.jpg` (not in git): `curl -L -o data/images/bus.jpg https://ultralytics.com/images/bus.jpg` |
+| Run the benchmark | `python -m src.run_all_benchmarks` (all four configurations in one session) |
+| Analysis and graphs | `python -m src.analyze_results` |
+| Validation | `python -m src.validate_experiment`, `python -m src.evaluate_accuracy` |
+| Outputs | `results/raw/`, `results/summary/`, `results/summaries/`, `results/graphs/`, `results/validation/`, `results/accuracy/` (not in git, except `validation_report.md`) |
+| File formats | CSV with a header row (columns listed in Steps 5 and 6), Markdown reports, 300-dpi PNG graphs |
+| Formulas | Step 6, "Formulas" |
+| Limitations | Steps 4 and 5, "Known limitations", and below |
+
+Measured times on another Mac will differ. The checks above confirm the
+procedure, not the exact numbers.
+
+### Experimental limitations (summary)
+
+- **One computer only:** a single Apple M2 Mac with 8 GB of unified memory. Other
+  Apple chips, other GPUs, or x86 CPUs may give different speedups.
+- **Shared memory:** the CPU and GPU share the same 8 GB and its bandwidth,
+  so memory used by other apps affects both.
+- **Uncontrolled conditions:** macOS background tasks, power source, and
+  temperature (a fanless Mac can throttle) can change trial times.
+- **GPU overhead is included:** GPU times include CPU-side
+  pre/postprocessing, GPU launch, and per-image synchronization. They are
+  elapsed workload times, not GPU compute time.
+- **Resolution changes the workload:** 640 → 320 speedups compare different
+  amounts of work, not different hardware.
+- **Small, fixed dataset:** 100 COCO images do not represent every
+  object-detection scenario. Batch size 1 and the small YOLO11n model only.
+- **Only total elapsed time is measured:** any explanation of *why* one
+  configuration is faster is a hypothesis, not a measurement.
