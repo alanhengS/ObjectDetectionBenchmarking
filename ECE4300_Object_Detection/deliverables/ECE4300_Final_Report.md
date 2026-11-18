@@ -4,15 +4,6 @@
 
 **Team members:** Alan Heng, Kevin Davis
 
-> **DRAFT — NOT FOR SUBMISSION.** The numbers in this draft are the
-> results *reported* for benchmark session `S20261112-121717-4092` in the
-> project README. They have **not yet been verified against the raw trial
-> CSV files**, which are on the measurement Mac (Step 7 validation is
-> pending). The minimum/maximum trial times, the figures, the detection-
-> quality results, and the installed software versions are marked
-> **[PENDING]**. Every pending item is listed in Section 12. The Word and
-> PDF versions have not been produced yet.
-
 ---
 
 ## 1. Introduction
@@ -81,19 +72,15 @@ every computer. Configurations B, C, and D each change one or both factors
 | CPU | Apple M2, 4 performance + 4 efficiency cores | Project README |
 | GPU | Apple M2 integrated GPU, used through PyTorch MPS | Project configuration |
 | Memory | 8 GB unified memory (shared by CPU and GPU) | Project README |
-| Operating system | macOS 26.1 (arm64) | Project README **[PENDING: confirm on Mac]** |
-| Python | 3.13.7 | Project README **[PENDING: confirm on Mac]** |
-| PyTorch | 2.15.0 (MPS backend) | `requirements.txt` pin **[PENDING: confirm on Mac]** |
-| Ultralytics | 8.4.202 | `requirements.txt` pin **[PENDING: confirm on Mac]** |
+| Operating system | macOS 26.1 (arm64) | `tests/check_environment.py` |
+| Python | 3.13.7 | `tests/check_environment.py` |
+| PyTorch | 2.15.0 (MPS backend) | `tests/check_environment.py` |
+| Ultralytics | 8.4.202 | Installed package (recorded in the accuracy CSV) |
 | OpenCV | 5.0.0.93 | `requirements.txt` pin |
 | Model | YOLO11n, official pretrained weights (`yolo11n.pt`), inference only | Ultralytics |
 | Dataset | First 100 images by ID of the COCO 2017 validation set (IDs 139–9891; 714 annotated objects) | `data/benchmark/` |
 | Input resolutions | 640×640 and 320×320 | Configuration file |
 | Batch size | 1 (images processed one at a time) | Configuration file |
-
-The versions marked PENDING are the recorded or pinned values. They must be
-confirmed on the measurement Mac (`python tests/check_environment.py`) before
-submission.
 
 **Execution configurations.** All four configurations use one shared
 configuration file (`config/benchmark_config.json`). Only the `device`
@@ -197,23 +184,21 @@ below 1 means it is **slower**: it took 1/Speedup times as long.
 ## 6. Experimental Results
 
 All values below are from benchmark session `S20261112-121717-4092` (12 Nov
-2026), as **reported** in the project README: 5 trials per configuration,
-100 images per trial.
+2026): 5 trials per configuration, 100 images per trial. Every value was
+recalculated independently from the raw trial CSVs by
+`python -m src.validate_experiment` (114 checks passed, 0 failed).
 
-**Table 3. Measured performance by configuration (reported; verification
-pending)**
+**Table 3. Measured performance by configuration**
 
-| Config. | Processor | Resolution | Mean execution time (s) | Time per image (ms) | Mean throughput (images/s) | Min. time (s) | Max. time (s) |
-|---|---|---|---|---|---|---|---|
-| A | CPU | 640×640 | 2.991 | 29.91 | 33.44 | [PENDING] | [PENDING] |
-| B | CPU | 320×320 | 0.968 | 9.68 | 103.29 | [PENDING] | [PENDING] |
-| C | GPU (MPS) | 640×640 | 1.747 | 17.47 | 57.25 | [PENDING] | [PENDING] |
-| D | GPU (MPS) | 320×320 | 1.140 | 11.40 | 87.77 | [PENDING] | [PENDING] |
+| Config. | Processor | Resolution | Mean execution time (s) | Time per image (ms) | Mean throughput (images/s) | Min. time (s) | Max. time (s) | Range (% of mean) |
+|---|---|---|---|---|---|---|---|---|
+| A | CPU | 640×640 | 2.991 | 29.91 | 33.44 | 2.964 | 3.038 | 2.5 % |
+| B | CPU | 320×320 | 0.968 | 9.68 | 103.29 | 0.955 | 0.983 | 2.9 % |
+| C | GPU (MPS) | 640×640 | 1.747 | 17.47 | 57.25 | 1.716 | 1.804 | 5.1 % |
+| D | GPU (MPS) | 320×320 | 1.140 | 11.40 | 87.77 | 1.116 | 1.171 | 4.8 % |
 
-*The minimum and maximum come from the raw trial CSVs, which are not
-available for this draft. The Step 5 output reported standard deviations of
-0.028, 0.011, 0.037, and 0.021 s for A–D, which is 0.9 %, 1.1 %, 2.1 %, and
-1.8 % of the respective means.*
+*Standard deviations of the execution time were 0.028, 0.011, 0.037, and
+0.021 s for A–D (0.9 %, 1.2 %, 2.1 %, and 1.9 % of the respective means).*
 
 **Table 4. Speedups (mean execution times)**
 
@@ -228,18 +213,21 @@ The resolution rows compare two different workloads on the same processor.
 The processor rows compare the same workload on two processors, so only those
 are hardware speedups.
 
+![Figure 1](performance_graphs/execution_time_S20261112-121717-4092.png)
+
 **Figure 1. Average object-detection execution time (seconds) by
-configuration.** [PENDING: insert
-`results/graphs/execution_time_S20261112-121717-4092.png`. Bars show the
-mean of 5 trials; whiskers show the fastest and slowest trial.]
+configuration.** Bars show the mean of 5 trials; whiskers show the fastest
+and slowest trial. Lower is faster.
+
+![Figure 2](performance_graphs/throughput_S20261112-121717-4092.png)
 
 **Figure 2. Object-detection throughput (images/s) by configuration.**
-[PENDING: insert `results/graphs/throughput_S20261112-121717-4092.png`]
+Higher is better.
+
+![Figure 3](performance_graphs/cpu_gpu_speedup_S20261112-121717-4092.png)
 
 **Figure 3. CPU-to-GPU speedup by input resolution, with a 1.0× reference
-line.** [PENDING: insert
-`results/graphs/cpu_gpu_speedup_S20261112-121717-4092.png`. Expected values
-from Table 4: 0.85× at 320×320 and 1.71× at 640×640.]
+line.** 1.71× at 640×640 (GPU faster) and 0.85× at 320×320 (GPU slower).
 
 ## 7. Technical Analysis
 
@@ -272,11 +260,12 @@ assumed beforehand and is the main unexpected result. A second notable
 observation is that the CPU gained much more than the GPU from the smaller
 input.
 
-**Consistency.** The reported standard deviations are at most 2.1 % of the
-mean in every configuration, so trial-to-trial variation is small compared
-with the differences between configurations. These differences range from
-15 % to 209 % in throughput. **[PENDING: confirm with the min/max range from
-the raw CSVs.]**
+**Consistency.** In every configuration the gap between the fastest and
+slowest trial was at most 5.1 % of the mean (2.5–5.1 %), and the standard
+deviation at most 2.1 %. All four configurations meet the project's 10 %
+consistency threshold. Trial-to-trial variation is therefore small compared
+with the differences between configurations, which range from 15 % to 209 %
+in throughput. The trial ranges of the four configurations do not overlap.
 
 ### 7.2 Workload and resolution
 
@@ -318,28 +307,42 @@ separately.
 
 - **Resolution vs. speed:** lowering the resolution gave the largest
   improvements (up to 3.09× on the CPU), but it reduces the image detail
-  available to the detector. Its effect on detection quality was not
-  measured in this draft (Section 8).
+  available to the detector. It lowered mAP50 by about 22 % (Section 8).
 - **Processor choice depends on workload size:** for the 640×640 workload
   the GPU is the better choice (1.71×). For the 320×320 workload the CPU is
   (0.85× for the GPU). Neither processor is better for every workload.
-- **Best configuration overall:** CPU at 320×320, if the lower resolution is
-  acceptable for the application. If 640×640 is required, the GPU should be
-  used.
+- **Best configuration overall:** for maximum speed, the CPU at 320×320,
+  if the application can accept the lower detection quality. If 640×640
+  quality is required, the GPU should be used: it is the fastest 640×640
+  configuration and the processor has no effect on detection quality.
 
 ## 8. Detection Quality
 
-**Status: not measured.** A quantitative evaluation was prepared in Step 7
-(`src/evaluate_accuracy.py`) but has not been run yet. It uses Ultralytics'
-standard validation procedure on the same 100 images and their COCO ground
-truth (709 non-crowd objects), with the same weights at 640×640 and 320×320,
-and reports precision, recall, mAP50, and mAP50-95.
+Detection quality was measured with `src/evaluate_accuracy.py`, which runs
+Ultralytics' standard validation (`model.val()`) on the same 100 images
+against their COCO ground truth (709 non-crowd objects; 5 crowd boxes
+skipped). The same weights were used at both resolutions, with batch size 1,
+NMS IoU 0.7, and confidence 0.001 (the standard setting for mAP, which needs
+the full precision–recall curve). This is an accuracy measurement only and
+is reported separately from the timing results. The processor does not
+change the network's output, so quality depends only on the resolution.
 
-No qualitative (visual) comparison of the two resolutions has been recorded
-either. This report therefore **makes no claim** about whether detection
-quality is maintained at 320×320. The speed advantage of 320×320 in
-Section 7 must be read with this limitation. **[PENDING: insert the mAP50
-results from `results/accuracy/accuracy_<time>.csv`.]**
+**Table 5. Detection quality by input resolution (100 images, 709 objects)**
+
+| Input | Precision | Recall | mAP50 | mAP50-95 |
+|---|---|---|---|---|
+| 640×640 | 0.754 | 0.518 | 0.622 | 0.467 |
+| 320×320 | 0.604 | 0.424 | 0.487 | 0.362 |
+| Change | −0.150 | −0.094 | −0.135 (−21.7 %) | −0.104 (−22.3 %) |
+
+Reducing the input to 320×320 lowered every quality metric. mAP50 fell from
+0.622 to 0.487, a relative loss of about 22 %, and recall fell from 0.518 to
+0.424, so the detector finds fewer of the objects. The faster 320×320
+configurations therefore do **not** keep the detection quality of 640×640.
+The 3.09× (CPU) and 1.53× (GPU) resolution speedups come with this accuracy
+cost. 100 images is a small sample, and Ultralytics' mAP can differ slightly
+from the official COCO evaluator. The comparison between the two resolutions
+is still valid because both use the same images, labels, and procedure.
 
 ## 9. Experimental Limitations
 
@@ -362,17 +365,18 @@ results from `results/accuracy/accuracy_<time>.csv`.]**
 - **Measurement variability.** Wall-clock times include operating-system
   scheduling. Five trials per configuration were averaged, and variation
   was small (Section 7.1).
+- **Small accuracy sample.** Detection quality was evaluated on the same 100
+  images only (Section 8).
 - **Software overhead.** The measured times include Python and Ultralytics
   processing, not only the neural network, and the GPU times include
   CPU-side work. The results describe this complete software stack, not the
   peak capability of the hardware.
 - **Generalizability.** The conclusions apply to this system, these
   software versions, and this workload.
-- **Verification status of this draft.** See Section 12.
 
 ## 10. Conclusion
 
-Based on the reported measurements of session `S20261112-121717-4092`:
+Based on the measurements of session `S20261112-121717-4092`:
 
 1. **Resolution:** Reducing the input from 640×640 to 320×320 reduced the
    execution time on both processors: by 67.6 % on the CPU (speedup 3.09×,
@@ -384,8 +388,9 @@ Based on the reported measurements of session `S20261112-121717-4092`:
 3. **Trade-offs:** The fastest configuration was the CPU at 320×320 (0.968 s
    per 100 images, 103.29 images/s, 3.09× faster than the baseline). The
    better processor depended on the size of the work per image. Lower
-   resolution gave the largest gains, and its cost in detection quality
-   still has to be measured.
+   resolution gave the largest gains, but cost about 22 % of mAP50
+   (0.622 → 0.487). When 640×640 quality is needed, the GPU is the better
+   choice (1.71× faster than the CPU).
 
 The experiment shows that execution time and throughput depend on how the
 workload and the processor interact, not on the processor alone. For small
@@ -426,14 +431,3 @@ https://docs.python.org/3/library/time.html#time.perf_counter.
 
 [9] J. D. Hunter, "Matplotlib: A 2D Graphics Environment," *Computing in
 Science & Engineering*, vol. 9, no. 3, pp. 90–95, 2007.
-
-## 12. Verification Status of This Draft (remove before submission)
-
-| Item | Status | How to complete |
-|---|---|---|
-| Table 3 means, ms/image, throughput; Table 4 speedups | Reported in README; internally consistent; **not verified against raw CSVs** | `python -m src.validate_experiment --session S20261112-121717-4092` on the Mac |
-| Table 3 min/max times | Missing | From the same validation run or `results/summaries/performance_summary_S20261112-121717-4092.csv` |
-| Figures 1–3 | Exist on the Mac (per README); not inserted | Copy from `results/graphs/` |
-| Software versions (Table 2) | Recorded/pinned values | `python tests/check_environment.py` on the Mac |
-| Detection quality (Section 8) | Not measured | `python -m src.evaluate_accuracy` on the Mac |
-| Word and PDF versions | Not generated | Convert after the data is final |

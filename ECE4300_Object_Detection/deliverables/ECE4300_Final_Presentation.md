@@ -1,10 +1,9 @@
-# ECE4300_Final_Presentation — slide content and speaker notes (DRAFT)
+# ECE4300_Final_Presentation — slide content and speaker notes
 
-> **Draft source for `ECE4300_Final_Presentation.pptx`. The .pptx itself has not been created.**
-> Values are the **reported** results of session `S20261112-121717-4092`
-> (README), not yet verified against the raw CSVs. Graph slides need the
-> PNGs from the Mac's `results/graphs/`. Remove every `[PENDING]` before
-> presenting.
+> Source for `ECE4300_Final_Presentation.pptx`. Values are from session
+> `S20261112-121717-4092`, verified against the raw trial CSVs
+> (`python -m src.validate_experiment`: 114 passed, 0 failed). Graphs are in
+> `performance_graphs/`.
 >
 > Suggested style: white background, dark gray text, one accent color
 > (e.g. dark blue) for headings and the GPU bars. At least 24 pt body text
@@ -85,7 +84,7 @@ five times, and the formulas are the ones from Lecture 1."
 
 ## Slide 4 — Execution Time Results
 
-[PENDING: insert Figure `results/graphs/execution_time_S20261112-121717-4092.png`]
+![Execution time](performance_graphs/execution_time_S20261112-121717-4092.png)
 
 | | CPU 640 | CPU 320 | GPU 640 | GPU 320 |
 |---|---|---|---|---|
@@ -93,7 +92,7 @@ five times, and the formulas are the ones from Lecture 1."
 | Time per image (ms) | 29.91 | **9.68** | 17.47 | 11.40 |
 
 - Fastest: **CPU 320×320**, 0.968 s
-- Trial-to-trial variation small (std ≤ 2.1 % of the mean) [PENDING: min/max]
+- Trial-to-trial variation small: fastest-to-slowest range ≤ 5.1 % of the mean
 
 **Speaker notes — Kevin:**
 "This graph shows the average time to process all 100 images, so lower is
@@ -108,7 +107,7 @@ run-to-run noise."
 
 ## Slide 5 — Throughput Results
 
-[PENDING: insert Figure `results/graphs/throughput_S20261112-121717-4092.png`]
+![Throughput](performance_graphs/throughput_S20261112-121717-4092.png)
 
 | | CPU 640 | CPU 320 | GPU 640 | GPU 320 |
 |---|---|---|---|---|
@@ -128,7 +127,7 @@ throughput rose by about half."
 
 ## Slide 6 — Speedup Comparison
 
-[PENDING: insert Figure `results/graphs/cpu_gpu_speedup_S20261112-121717-4092.png`]
+![CPU-to-GPU speedup](performance_graphs/cpu_gpu_speedup_S20261112-121717-4092.png)
 
 | Comparison | Speedup | Meaning |
 |---|---|---|
@@ -154,7 +153,7 @@ a smaller workload with a larger one on the same processor. The CPU gained
 - **Possible explanation (hypothesis, not measured):** fixed per-image costs
   (CPU-side pre/postprocessing, GPU launch + synchronization, batch 1) dominate
   when the network work shrinks
-- **Detection quality:** not yet measured [PENDING: mAP50 at 640 vs. 320]. No claim that accuracy is maintained
+- **Detection quality:** 320×320 lowers mAP50 from 0.622 to 0.487 (−22 %). Speed gains cost accuracy
 - **Limitations:** one Mac, 100 images, batch 1, background OS activity,
   shared memory, possible thermal effects
 
@@ -165,8 +164,9 @@ not its parts. Our hypothesis is that each image has fixed costs, such as
 Python and preprocessing on the CPU and starting and waiting for the GPU, that
 do not get smaller with the input. At 320 the actual network work is about
 four times smaller, so those fixed costs take up a bigger share and cancel
-the GPU's advantage. We have not measured detection quality yet, so we do
-not claim 320 is as accurate as 640. Finally, this is one computer and one
+the GPU's advantage. We also measured detection quality on the same 100
+images: at 320 the mAP50 score drops from 0.62 to 0.49, about 22 percent
+lower, so the smaller input is faster but finds fewer objects. Finally, this is one computer and one
 small workload, so other hardware could behave differently."
 
 ---
@@ -175,7 +175,7 @@ small workload, so other hardware could behave differently."
 
 - **Q1:** 640 → 320 cut execution time by 68 % on the CPU and 35 % on the GPU
 - **Q2:** GPU 1.71× faster at 640×640, but 0.85× (slower) at 320×320
-- **Q3:** Best overall: CPU at 320×320 (3.09× the baseline). The processor choice depends on the workload size
+- **Q3:** Fastest: CPU at 320×320 (3.09× the baseline) but −22 % mAP50. At 640×640, use the GPU
 - **Live demo:** `python -m src.benchmark --config C --demo 20`, then `--config A --demo 20`
   - 20 images, 2 trials, saved to `results/demo/`, separate from the formal results
 
@@ -183,8 +183,9 @@ small workload, so other hardware could behave differently."
 "To answer our questions. First, lowering the resolution made both
 processors faster: 68 percent less time on the CPU and 35 percent on the GPU.
 Second, the GPU was faster at 640 but slower at 320. Third, the fastest setup
-overall was the CPU at 320, and the right processor depends on how much work
-each image needs. Now we'll show how a measurement is made. We run the same
+overall was the CPU at 320, but it costs about 22 percent of detection
+accuracy. If full 640 accuracy is needed, the GPU is the better choice. The
+right processor depends on how much work each image needs. Now we'll show how a measurement is made. We run the same
 benchmark program on a quick 20-image subset, first on the GPU and then on
 the CPU. The terminal shows the device check, the warm-up, each timed trial,
 and how time per image and throughput are calculated. These quick-demo

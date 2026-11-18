@@ -60,17 +60,18 @@ Apple Silicon Mac, at two input resolutions.
 - Summary CSV, speedup CSV, written report, and three graphs
 - Run on the Mac for session `S20261112-121717-4092`; outputs in `results/summaries/` and `results/graphs/`
 
-**Stage 7 – Experimental validation (tools complete; Mac run pending)**
+**Stage 7 – Experimental validation (complete)**
 
 - `src/validate_experiment.py` recalculates every metric from the raw CSVs and checks the Step 5/6 outputs and graphs against it
 - `src/evaluate_accuracy.py` measures detection quality (mAP50) at 640 and 320 with Ultralytics' built-in validation
-- `results/validation_report.md` records which checks have passed and which are still pending (see Step 7)
+- Run on the Mac on 17 Nov 2026: 114 data checks passed, 0 failed; 92 unit tests passed; mAP50 0.622 (640) vs. 0.487 (320)
+- Findings recorded in `results/validation_report.md` (see Step 7)
 
-**Stage 8 – Final deliverables (drafts; Mac data pending)**
+**Stage 8 – Final deliverables (complete)**
 
 - Quick classroom demo option on the existing benchmark: `python -m src.benchmark --config C --demo 20` (see `docs/demo_guide.md`)
-- `deliverables/`: report and presentation drafts (Markdown), results summary, rubric checklist, demo guide
-- Report values are the README session values, marked as not yet verified against the raw CSVs. Graphs, min/max, mAP50, and the .docx/.pptx/.pdf files are still to come (see `deliverables/rubric_compliance.md`)
+- `deliverables/`: final report and presentation, results summary, graphs, demo guide
+- All report values verified against the raw CSVs. Demo run on the Mac for configs C and A
 
 ## Project Structure
 
@@ -84,7 +85,7 @@ ECE4300_Object_Detection/
 │       ├── images/              # 100 COCO 2017 val images
 │       ├── annotations/         # instances_val2017_subset.json
 │       └── image_manifest.csv   # Fixed, ordered image list
-├── deliverables/  # Step 8: report/presentation drafts, results summary, rubric checklist
+├── deliverables/  # Step 8: final report/presentation, graphs, results summary
 ├── docs/
 │   └── demo_guide.md            # Step 8: classroom demonstration guide
 ├── models/        # YOLO model weights (yolo11n.pt)

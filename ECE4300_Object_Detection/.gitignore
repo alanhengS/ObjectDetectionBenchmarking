@@ -12,9 +12,8 @@ models/*.pt
 # Datasets and generated output
 data/images/*
 !data/images/.gitkeep
-results/*
-!results/.gitkeep
-!results/validation_report.md
+# results/ is tracked: raw CSVs, summaries, graphs, validation, accuracy, and demo outputs
+# are the evidence for the reported measurements (about 1 MB in total)
 
 # Step 7 accuracy check: YOLO labels derived from the COCO annotations (regenerated each run)
 data/benchmark/labels/

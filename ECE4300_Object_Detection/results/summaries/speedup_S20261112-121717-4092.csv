@@ -1,0 +1,5 @@
+comparison,kind,reference,comparison_config,reference_mean_time_s,comparison_mean_time_s,speedup,faster_configuration,interpretation
+Resolution effect on CPU,resolution,CPU-640,CPU-320,2.990852,0.968259,3.0889,CPU-320,Speedup 3.09 > 1: CPU-320 was faster than CPU-640 (3.09x the performance).
+Resolution effect on GPU,resolution,GPU-640,GPU-320,1.747344,1.139636,1.5332,GPU-320,Speedup 1.53 > 1: GPU-320 was faster than GPU-640 (1.53x the performance).
+CPU vs. GPU at 640x640,device,CPU-640,GPU-640,2.990852,1.747344,1.7117,GPU-640,Speedup 1.71 > 1: GPU-640 was faster than CPU-640 (1.71x the performance).
+CPU vs. GPU at 320x320,device,CPU-320,GPU-320,0.968259,1.139636,0.8496,CPU-320,Speedup 0.85 < 1: GPU-320 was SLOWER than CPU-320 (it took 1.18x as long).
