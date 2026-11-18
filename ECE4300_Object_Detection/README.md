@@ -69,7 +69,7 @@ Apple Silicon Mac, at two input resolutions.
 
 **Stage 8 – Final deliverables (complete)**
 
-- Quick classroom demo option on the existing benchmark: `python -m src.benchmark --config C --demo 20` (see `docs/demo_guide.md`)
+- Quick classroom demo option on the existing benchmark: `python -m src.benchmark --config C --demo 20` (see `deliverables/demo_guide.md`)
 - `deliverables/`: final report and presentation, results summary, graphs, demo guide
 - All report values verified against the raw CSVs. Demo run on the Mac for configs C and A
 
@@ -85,9 +85,7 @@ ECE4300_Object_Detection/
 │       ├── images/              # 100 COCO 2017 val images
 │       ├── annotations/         # instances_val2017_subset.json
 │       └── image_manifest.csv   # Fixed, ordered image list
-├── deliverables/  # Step 8: final report/presentation, graphs, results summary
-├── docs/
-│   └── demo_guide.md            # Step 8: classroom demonstration guide
+├── deliverables/  # Step 8: final report/presentation, demo guide, graphs, results summary
 ├── models/        # YOLO model weights (yolo11n.pt)
 ├── src/
 │   ├── detector.py  # Loads YOLO11n and runs inference
@@ -863,7 +861,7 @@ implementation and can differ slightly from the official COCO
 | Run the benchmark | `python -m src.run_all_benchmarks` (all four configurations in one session) |
 | Analysis and graphs | `python -m src.analyze_results` |
 | Validation | `python -m src.validate_experiment`, `python -m src.evaluate_accuracy` |
-| Outputs | `results/raw/`, `results/summary/`, `results/summaries/`, `results/graphs/`, `results/validation/`, `results/accuracy/` (not in git, except `validation_report.md`) |
+| Outputs | `results/raw/`, `results/summary/`, `results/summaries/`, `results/graphs/`, `results/validation/`, `results/accuracy/`, `results/demo/` (all tracked in git as evidence) |
 | File formats | CSV with a header row (columns listed in Steps 5 and 6), Markdown reports, 300-dpi PNG graphs |
 | Formulas | Step 6, "Formulas" |
 | Limitations | Steps 4 and 5, "Known limitations", and below |

@@ -207,10 +207,6 @@ def write_csv(path, columns, rows):
     return path
 
 
-def fmt(value, spec):
-    return format(value, spec) if isinstance(value, (int, float)) else "—"
-
-
 def display_path(path):
     path = Path(path)
     return path.relative_to(PROJECT_ROOT) if path.is_relative_to(PROJECT_ROOT) else path

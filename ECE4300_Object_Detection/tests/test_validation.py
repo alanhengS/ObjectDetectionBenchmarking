@@ -18,7 +18,6 @@ import tempfile
 import unittest
 import zlib
 from pathlib import Path
-from unittest import mock
 
 from src import analyze_results as ar
 from src import compare_results
