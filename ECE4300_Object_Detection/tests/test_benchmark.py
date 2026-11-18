@@ -157,5 +157,42 @@ class TestCsvOutput(unittest.TestCase):
         self.assertNotEqual(benchmark.new_run_id(now), benchmark.new_run_id(now))
 
 
+class TestQuickDemo(unittest.TestCase):
+    """Step 8: --demo uses the same settings on fewer images, saved apart from results/raw/."""
+
+    def test_demo_config_changes_only_size_and_output(self):
+        base = benchmark.load_config("C")
+        demo = benchmark.demo_config(base, 20, 2)
+        self.assertEqual((demo.num_trials, demo.num_warmup), (2, 20))   # warm-up = all 20 images
+        self.assertEqual(demo.raw_results_dir, benchmark.DEMO_DIR)
+        self.assertNotEqual(demo.raw_results_dir, base.raw_results_dir)
+        for field in ("device", "image_size", "batch_size", "conf_threshold", "iou_threshold",
+                      "cpu_threads", "model_path", "manifest_path", "expected_images"):
+            self.assertEqual(getattr(demo, field), getattr(base, field), field)
+
+    def test_demo_limits(self):
+        base = benchmark.load_config("A")
+        for n, t in ((0, 2), (101, 2), (10, 0)):
+            with self.assertRaises(ValueError):
+                benchmark.demo_config(base, n, t)
+
+    def test_demo_arguments(self):
+        args = benchmark.parse_args(["--config", "D", "--demo", "10"])
+        self.assertEqual((args.config, args.demo, args.demo_trials), ("D", 10, benchmark.DEMO_TRIALS))
+        self.assertIsNone(benchmark.parse_args([]).demo)                  # formal run by default
+
+    def test_demo_csv_goes_to_demo_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = benchmark.demo_config(benchmark.load_config("A"), 5, 1, out_dir=Path(tmp) / "demo")
+            recs = [{"trial": 1, "total_time_s": 0.5, "avg_time_ms_per_image": 100.0,
+                     "throughput_img_per_s": 10.0}]
+            path = benchmark.save_results(recs, "demo-x", "2026-01-01T00:00:00", "Apple M2", 5,
+                                          cfg=cfg, cpu_threads=4)
+            self.assertEqual(path.parent, Path(tmp) / "demo")
+            with open(path, newline="") as f:
+                row = next(csv.DictReader(f))
+        self.assertEqual((row["num_images"], row["warmup_images"]), ("5", "5"))
+
+
 if __name__ == "__main__":
     unittest.main()

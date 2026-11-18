@@ -1,0 +1,5 @@
+config_id,configuration,processor,resolution,trials,images_per_trial,mean_execution_time_s,avg_processing_time_ms_per_image,mean_throughput_img_per_s,min_execution_time_s,max_execution_time_s,execution_time_range_s,stdev_execution_time_s,session_id,data_status
+A,CPU-640,Apple M2 CPU,640x640,5,100,2.991,29.91,33.44,,,,0.028,S20261112-121717-4092,REPORTED_IN_README_NOT_VERIFIED_AGAINST_RAW_CSV; min/max pending
+B,CPU-320,Apple M2 CPU,320x320,5,100,0.968,9.68,103.29,,,,0.011,S20261112-121717-4092,REPORTED_IN_README_NOT_VERIFIED_AGAINST_RAW_CSV; min/max pending
+C,GPU-640,Apple M2 GPU (MPS),640x640,5,100,1.747,17.47,57.25,,,,0.037,S20261112-121717-4092,REPORTED_IN_README_NOT_VERIFIED_AGAINST_RAW_CSV; min/max pending
+D,GPU-320,Apple M2 GPU (MPS),320x320,5,100,1.140,11.40,87.77,,,,0.021,S20261112-121717-4092,REPORTED_IN_README_NOT_VERIFIED_AGAINST_RAW_CSV; min/max pending

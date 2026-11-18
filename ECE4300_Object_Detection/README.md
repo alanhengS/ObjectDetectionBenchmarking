@@ -66,6 +66,12 @@ Apple Silicon Mac, at two input resolutions.
 - `src/evaluate_accuracy.py` measures detection quality (mAP50) at 640 and 320 with Ultralytics' built-in validation
 - `results/validation_report.md` records which checks have passed and which are still pending (see Step 7)
 
+**Stage 8 – Final deliverables (drafts; Mac data pending)**
+
+- Quick classroom demo option on the existing benchmark: `python -m src.benchmark --config C --demo 20` (see `docs/demo_guide.md`)
+- `deliverables/`: report and presentation drafts (Markdown), results summary, rubric checklist, demo guide
+- Report values are the README session values, marked as not yet verified against the raw CSVs. Graphs, min/max, mAP50, and the .docx/.pptx/.pdf files are still to come (see `deliverables/rubric_compliance.md`)
+
 ## Project Structure
 
 ```text
@@ -78,6 +84,9 @@ ECE4300_Object_Detection/
 │       ├── images/              # 100 COCO 2017 val images
 │       ├── annotations/         # instances_val2017_subset.json
 │       └── image_manifest.csv   # Fixed, ordered image list
+├── deliverables/  # Step 8: report/presentation drafts, results summary, rubric checklist
+├── docs/
+│   └── demo_guide.md            # Step 8: classroom demonstration guide
 ├── models/        # YOLO model weights (yolo11n.pt)
 ├── src/
 │   ├── detector.py  # Loads YOLO11n and runs inference
@@ -97,6 +106,7 @@ ECE4300_Object_Detection/
 │   ├── graphs/    # Step 6 PNG graphs
 │   ├── validation/          # Step 7 data-validation output (one file per run)
 │   ├── accuracy/            # Step 7 accuracy CSVs (one file per run)
+│   ├── demo/                # Step 8 quick-demo CSVs (never used in the analysis)
 │   └── validation_report.md # Step 7 validation report (tracked in git)
 └── tests/         # Environment and unit checks
 ```
@@ -448,6 +458,9 @@ python -m src.benchmark                  # A: CPU 640x640 (baseline, same as Ste
 python -m src.benchmark --config B       # B: CPU 320x320   (or --config CPU-320)
 python -m src.benchmark --config C       # C: GPU 640x640   (or --config GPU-640)
 python -m src.benchmark --config D       # D: GPU 320x320   (or --config GPU-320)
+
+# Quick classroom demo (Step 8): first 20 images, 2 trials, saved to results/demo/
+python -m src.benchmark --config C --demo 20
 
 # All four, one after another, then the summary and speedup table
 python -m src.run_all_benchmarks

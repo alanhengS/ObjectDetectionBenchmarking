@@ -27,6 +27,12 @@ warm-up, printing, and CSV writing.
 Run from the project root:
     python -m src.benchmark                 # configuration A (CPU-640 baseline)
     python -m src.benchmark --config B      # or CPU-320, C / GPU-640, D / GPU-320
+
+Quick classroom demonstration (Step 8): the same measurement on the first N
+manifest images with fewer trials, saved to results/demo/ so it is never
+mixed with, or overwrites, the formal 100-image / 5-trial results:
+    python -m src.benchmark --config C --demo 20              # 2 trials (default)
+    python -m src.benchmark --config A --demo 20 --demo-trials 3
 """
 
 import argparse
@@ -39,6 +45,7 @@ import subprocess
 import sys
 import time
 import uuid
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -75,6 +82,8 @@ RAW_RESULTS_DIR = BASELINE.raw_results_dir
 
 MEASUREMENT_LABEL = "elapsed_workload_time"   # preprocess + inference + postprocess
 FAILURES_FILE = "failed_runs.csv"
+DEMO_DIR = PROJECT_ROOT / "results" / "demo"   # quick demos only; never read by the analysis
+DEMO_TRIALS = 2
 
 CSV_COLUMNS = [
     "run_id", "session_id", "timestamp", "configuration", "config_id", "device",
@@ -394,6 +403,35 @@ def record_failure(cfg, session_id, error, out_dir=None):
     return path
 
 
+def demo_config(cfg, num_images, num_trials=DEMO_TRIALS, out_dir=DEMO_DIR):
+    """
+    Quick-demonstration variant of a configuration (Step 8).
+
+    Same device, resolution, model, prediction settings and timing boundary;
+    only the number of images (the first `num_images` in manifest order) and
+    trials are smaller. Output goes to results/demo/, which the analysis and
+    validation scripts never read, so a demo cannot be mistaken for, or
+    overwrite, a formal measurement. Warm-up still covers every demo image.
+    """
+    if not 1 <= num_images <= cfg.expected_images:
+        raise ValueError(f"--demo must be between 1 and {cfg.expected_images} images")
+    if num_trials < 1:
+        raise ValueError("--demo-trials must be at least 1")
+    return replace(cfg, num_trials=num_trials, num_warmup=min(cfg.num_warmup, num_images),
+                   raw_results_dir=out_dir, summary_dir=out_dir)
+
+
+def print_calculation(record, num_images):
+    """Show the Lecture 1 formulas with one trial's measured numbers (demo output)."""
+    t = record["total_time_s"]
+    print(f"How trial {record['trial']} was calculated:")
+    print(f"  Execution time   = timer stop - timer start          = {t:.3f} s")
+    print(f"  Time per image   = {t:.3f} s / {num_images} images x 1000"
+          f"   = {record['avg_time_ms_per_image']:.2f} ms/image")
+    print(f"  Throughput       = {num_images} images / {t:.3f} s"
+          f"          = {record['throughput_img_per_s']:.2f} images/s")
+
+
 def summarize(records):
     times = [r["total_time_s"] for r in records]
     return {
@@ -418,6 +456,11 @@ def parse_args(argv=None):
                    help="Path to the benchmark configuration JSON file")
     p.add_argument("--session-id", default=None,
                    help="Groups runs started together by run_all_benchmarks")
+    p.add_argument("--demo", type=int, default=None, metavar="N",
+                   help="Quick demonstration on the first N images; saved to results/demo/, "
+                        "separate from the formal results")
+    p.add_argument("--demo-trials", type=int, default=DEMO_TRIALS, metavar="T",
+                   help=f"Trials for --demo (default {DEMO_TRIALS})")
     return p.parse_args(argv)
 
 
@@ -428,21 +471,38 @@ def main(argv=None):
     except ConfigError as e:
         print(f"ERROR: {e}")
         return 1
+    demo = args.demo is not None
+    if demo:
+        try:
+            cfg = demo_config(cfg, args.demo, args.demo_trials)
+        except ValueError as e:
+            print(f"ERROR: {e}")
+            return 1
 
     now = datetime.now()
-    run_id = new_run_id(now)
+    run_id = ("demo-" if demo else "") + new_run_id(now)
     session_id = args.session_id or run_id
 
     line = "-" * 41
     processor = get_processor_name()
-    title = "CPU Baseline Benchmark" if cfg.is_baseline else "Benchmark"
+    if demo:
+        title = "QUICK DEMONSTRATION"
+    else:
+        title = "CPU Baseline Benchmark" if cfg.is_baseline else "Benchmark"
     print(f"ECE 4300 — {title}: configuration {cfg.key} ({cfg.name})")
     print(line)
+    if demo:
+        print(f"Demo workload: first {args.demo} of the {cfg.expected_images} benchmark images, "
+              f"{cfg.num_trials} trial(s).")
+        print("NOT a formal result: the formal experiment uses all "
+              f"{cfg.expected_images} images and 5 trials.")
+        print(f"Saved separately in {display_path(DEMO_DIR)}/ (formal results are untouched).")
+        print(line)
     print(f"Model:       YOLO11n ({cfg.model_path.name})")
     print(f"Device:      {processor_label(processor, cfg)} "
           f"({cfg.cpu_threads} PyTorch CPU threads)")
     print(f"Resolution:  {cfg.image_size} x {cfg.image_size}")
-    print(f"Dataset:     COCO 2017 val ({cfg.expected_images} images)")
+    print(f"Dataset:     COCO 2017 val ({args.demo if demo else cfg.expected_images} images)")
     print(f"Batch Size:  {cfg.batch_size}")
     print(f"Trials:      {cfg.num_trials}")
     print()
@@ -466,6 +526,8 @@ def main(argv=None):
     if len(rows) != cfg.expected_images:
         print(f"ERROR: Manifest lists {len(rows)} images, expected {cfg.expected_images}.")
         return 1
+    if demo:
+        rows = rows[:args.demo]          # first N images, still in manifest order
 
     try:
         images = load_images(rows)
@@ -523,6 +585,9 @@ def main(argv=None):
         torch.mps.empty_cache()   # release cached GPU memory (8 GB unified memory)
 
     print()
+    if demo:
+        print_calculation(records[-1], len(images))
+        print()
     print(f"Average execution time: {s['mean_time_s']:.3f} s")
     print(f"Average latency:        {s['mean_latency_ms']:.2f} ms/image")
     print(f"Average throughput:     {s['mean_throughput']:.2f} images/s")
@@ -533,6 +598,8 @@ def main(argv=None):
     print()
     print(f"Run ID:                 {run_id}")
     print(f"Results saved to:       {display_path(path)}")
+    if demo:
+        print("(Quick demonstration only — compare formal results in results/summaries/.)")
     print(line)
     return 0
 
